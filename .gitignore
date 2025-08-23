@@ -1,0 +1,7 @@
+venv/
+cv_project/
+__pycache__/
+*.pyc
+*.pkl
+logs/*
+data/*
