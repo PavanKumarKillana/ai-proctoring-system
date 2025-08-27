@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for
-from src.face_module import register_face, verify_face
+from src.face_module import register_face, verify_face_with_gaze
 
 app = Flask(__name__)
 
@@ -26,11 +26,11 @@ def verify():
         student_id = request.form['student_id']
         if not student_id:
             return redirect(url_for('result', message='Error: Student ID cannot be empty.'))
-        success = verify_face(student_id)
+        success, message = verify_face_with_gaze(student_id)
         if success:
             return redirect(url_for('result', message=f'Verification successful for {student_id}!'))
         else:
-            return redirect(url_for('result', message=f'Verification failed for {student_id}. Ensure one face is visible or register first.'))
+            return redirect(url_for('result', message=f'Verification failed for {student_id}: {message}'))
     return render_template('verify.html')
 
 @app.route('/result')
