@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+      <html>
+      <head>
+          <title>Result</title>
+      </head>
+      <body>
+          <h1>{{ action }} Result</h1>
+          {% if success %}
+              <p>{{ action }} successful for {{ student_id }}!</p>
+          {% else %}
+              <p>{{ action }} failed for {{ student_id }}.</p>
+          {% endif %}
+          <a href="{{ url_for('index') }}">Back</a>
+      </body>
+      </html>
