@@ -4,11 +4,21 @@ import pickle
 import os
 import time
 
+def initialize_webcam(max_retries=3, delay=1):
+    """Initialize webcam with retries."""
+    for attempt in range(max_retries):
+        video_capture = cv2.VideoCapture(0)
+        if video_capture.isOpened():
+            return video_capture
+        print(f"Webcam initialization failed, retrying ({attempt + 1}/{max_retries})...")
+        time.sleep(delay)
+    print("Error: Webcam access failed after retries.")
+    return None
+
 def register_face(student_id, max_attempts=100, timeout_seconds=60, model="cnn"):
     """Registers student's face by capturing and encoding it."""
-    video_capture = cv2.VideoCapture(0)
-    if not video_capture.isOpened():
-        print("Error: Webcam access failed.")
+    video_capture = initialize_webcam()
+    if not video_capture:
         return False
 
     print(f"Look at the camera. Press 's' to save (one face only). Press 'q' to quit. Using {model} model.")
@@ -20,7 +30,7 @@ def register_face(student_id, max_attempts=100, timeout_seconds=60, model="cnn")
             ret, frame = video_capture.read()
             if not ret:
                 print("Error: Failed to capture frame.")
-                return False
+                continue  # Retry instead of failing
 
             small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
             rgb_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
@@ -75,9 +85,8 @@ def verify_face(student_id, tolerance=0.6, max_attempts=100, timeout_seconds=60,
     with open(encoding_file, 'rb') as f:
         known_encoding = pickle.load(f)
 
-    video_capture = cv2.VideoCapture(0)
-    if not video_capture.isOpened():
-        print("Error: Webcam access failed.")
+    video_capture = initialize_webcam()
+    if not video_capture:
         return False
 
     print(f"Look at the camera for verification. Press 'q' to quit. Using {model} model.")
@@ -89,7 +98,7 @@ def verify_face(student_id, tolerance=0.6, max_attempts=100, timeout_seconds=60,
             ret, frame = video_capture.read()
             if not ret:
                 print("Error: Failed to capture frame.")
-                return False
+                continue  # Retry instead of failing
 
             small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
             rgb_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
