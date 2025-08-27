@@ -17,7 +17,7 @@ def initialize_webcam(max_retries=3, delay=1):
     print("Error: Webcam access failed after retries.")
     return None
 
-def detect_faces(frame, model="hog", scale=0.5, retries=3):
+def detect_faces(frame, model="cnn", scale=0.5, retries=3):
     """Detect faces with retries and scale fallback."""
     for attempt in range(retries):
         try:
@@ -35,7 +35,7 @@ def detect_faces(frame, model="hog", scale=0.5, retries=3):
             print(f"Face detection error: {e}")
     return [], [], scale
 
-def register_face(student_id, max_attempts=200, timeout_seconds=120, model="hog"):
+def register_face(student_id, max_attempts=200, timeout_seconds=120, model="cnn"):
     """Registers student's face by capturing and encoding it."""
     video_capture = initialize_webcam()
     if not video_capture:
@@ -101,7 +101,7 @@ def register_face(student_id, max_attempts=200, timeout_seconds=120, model="hog"
         video_capture.release()
         cv2.destroyAllWindows()
 
-def verify_face(student_id, tolerance=0.5, max_attempts=200, timeout_seconds=120, model="hog"):
+def verify_face(student_id, tolerance=0.5, max_attempts=200, timeout_seconds=120, model="cnn"):
     """Verifies face by comparing live capture to saved encoding."""
     encoding_file = f'data/{student_id}_encoding.pkl'
     if not os.path.exists(encoding_file):
