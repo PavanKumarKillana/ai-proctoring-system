@@ -1,15 +1,16 @@
 <!DOCTYPE html>
-      <html>
-      <head>
-          <title>Register Face</title>
-      </head>
-      <body>
-          <h1>Register Face</h1>
-          <form method="post">
-              <label>Student ID:</label>
-              <input type="text" name="student_id" required>
-              <input type="submit" value="Register">
-          </form>
-          <a href="{{ url_for('index') }}">Back</a>
-      </body>
-      </html>
+<html>
+<head>
+    <title>Register Face</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Register Face</h1>
+    <form method="POST" action="{{ url_for('register') }}">
+        <label for="student_id">Student ID:</label>
+        <input type="text" id="student_id" name="student_id" required>
+        <input type="submit" value="Register">
+    </form>
+    <a href="{{ url_for('index') }}">Back to Home</a>
+</body>
+</html>
