@@ -8,7 +8,8 @@ from threading import Thread, Lock
 
 # Ensure the root directory is in sys.path so 'src' can be found
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from src.face_module import register_face, verify_face_with_gaze, monitor_exam, current_state
+from src.face_module import register_face, verify_face_with_gaze, current_state
+from src.webrtc_processor import ExamSession, active_sessions
 
 app = Flask(__name__)
 
@@ -49,92 +50,98 @@ video_capture = None
 capture_lock = Lock()
 monitoring_results = {'status': 'idle', 'message': '', 'warnings': []}
 
-def initialize_video_capture():
-    global video_capture
-    with capture_lock:
-        if video_capture is None or not video_capture.isOpened():
-            video_capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-            if video_capture.isOpened():
-                video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-                video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
-                video_capture.set(cv2.CAP_PROP_FPS, 15)
-                print("Webcam initialized for streaming.")
-            else:
-                print("Error: Cannot initialize webcam.")
-                return False
-        return True
+# WEBCAM (DEPRECATED: WebRTC Handles Video Stream locally now)
+# ===============================
+# video_capture = None
+# capture_lock = Lock()
+# monitoring_results = {'status': 'idle', 'message': '', 'warnings': []}
 
-def release_video_capture():
-    global video_capture
-    with capture_lock:
-        if video_capture is not None and video_capture.isOpened():
-            video_capture.release()
-            print("Webcam released.")
+# def initialize_video_capture():
+#     global video_capture
+#     with capture_lock:
+#         if video_capture is None or not video_capture.isOpened():
+#             video_capture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+#             if video_capture.isOpened():
+#                 video_capture.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
+#                 video_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+#                 video_capture.set(cv2.CAP_PROP_FPS, 15)
+#                 print("Webcam initialized for streaming.")
+#             else:
+#                 print("Error: Cannot initialize webcam.")
+#                 return False
+#         return True
 
-def gen_frames():
-    if not initialize_video_capture():
-        return
-    last_time = time.time()
-    while True:
-        with capture_lock:
-            if video_capture is None or not video_capture.isOpened():
-                break
-            ret, frame = video_capture.read()
-            if not ret:
-                break
+# def release_video_capture():
+#     global video_capture
+#     with capture_lock:
+#         if video_capture is not None and video_capture.isOpened():
+#             video_capture.release()
+#             print("Webcam released.")
 
-        if time.time() - last_time < 0.1:
-            continue
-        last_time = time.time()
+# def gen_frames():
+#     if not initialize_video_capture():
+#         return
+#     last_time = time.time()
+#     while True:
+#         with capture_lock:
+#             if video_capture is None or not video_capture.isOpened():
+#                 break
+#             ret, frame = video_capture.read()
+#             if not ret:
+#                 break
 
-        cv2.putText(frame, f"Gaze: {current_state['gaze']}", (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-        cv2.putText(frame, f"Head: {current_state['head_pose']}", (10, 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+#         if time.time() - last_time < 0.1:
+#             continue
+#         last_time = time.time()
 
-        frame = cv2.resize(frame, (200, 150))
-        ret, buffer = cv2.imencode('.jpg', frame)
-        if not ret:
-            continue
+#         cv2.putText(frame, f"Gaze: {current_state['gaze']}", (10, 30),
+#                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+#         cv2.putText(frame, f"Head: {current_state['head_pose']}", (10, 60),
+#                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
 
-        yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' +
-               buffer.tobytes() + b'\r\n')
+#         frame = cv2.resize(frame, (200, 150))
+#         ret, buffer = cv2.imencode('.jpg', frame)
+#         if not ret:
+#             continue
 
-@app.route('/video_feed')
-def video_feed():
-    return Response(gen_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+#         yield (b'--frame\r\nContent-Type: image/jpeg\r\n\r\n' +
+#                buffer.tobytes() + b'\r\n')
+
+# @app.route('/video_feed')
+# def video_feed():
+#     return Response(gen_frames(),
+#                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
 # ===============================
-# MONITORING THREAD
+# MONITORING THREAD (DEPRECATED: WebRTC Handles Video Stream locally now)
 # ===============================
-def run_monitoring(student_id, model_choice):
-    global monitoring_results
-    monitoring_results['status'] = 'running'
+# def run_monitoring(student_id, model_choice):
+#     global monitoring_results
+#     monitoring_results['status'] = 'running'
 
-    if not initialize_video_capture():
-        monitoring_results['status'] = 'completed'
-        monitoring_results['message'] = 'Webcam initialization failed.'
-        return
+#     if not initialize_video_capture():
+#         monitoring_results['status'] = 'completed'
+#         monitoring_results['message'] = 'Webcam initialization failed.'
+#         return
 
-    success, message, warnings = monitor_exam(
-        student_id,
-        video_capture=video_capture,
-        duration_seconds=EXAM_DURATION,
-        short_violation_duration=2,
-        down_violation_duration=5,
-        long_violation_duration=10,
-        max_warnings=3,
-        model_choice=model_choice
-    )
+#     success, message, warnings = monitor_exam(
+#         student_id,
+#         video_capture=video_capture,
+#         duration_seconds=EXAM_DURATION,
+#         short_violation_duration=2,
+#         down_violation_duration=5,
+#         long_violation_duration=10,
+#         max_warnings=3,
+#         model_choice=model_choice
+#     )
 
-    # Save violations to database
-    for warning in warnings:
-        save_violation(student_id, warning)
+#     # Save violations to database
+#     for warning in warnings:
+#         save_violation(student_id, warning)
 
-    monitoring_results['status'] = 'completed'
-    monitoring_results['message'] = message
-    monitoring_results['warnings'] = warnings
+#     monitoring_results['status'] = 'completed'
+#     monitoring_results['message'] = message
+#     monitoring_results['warnings'] = warnings
 
 # ===============================
 # ROUTES
@@ -146,40 +153,37 @@ def index():
 @app.route('/exam')
 def exam():
     student_id = request.args.get('student_id', '')
-    is_running = (monitoring_results['status'] == 'running')
+    is_running = student_id in active_sessions and not active_sessions[student_id].is_terminated
     return render_template('exam.html', duration=EXAM_DURATION, student_id=student_id, is_running=is_running)
 
 @app.route('/start_monitoring', methods=['POST'])
 def start_monitoring():
-    global monitoring_results
-    student_id = request.form['student_id']
+    student_id = request.form.get('student_id', '')
     
     # Get model choice from the form (default to mediapipe)
     model_choice = request.form.get('model_choice', 'mediapipe')
     
     if not student_id:
-        return redirect(url_for('result', message='Error: Student ID cannot be empty.'))
-
-    monitoring_results = {'status': 'running', 'message': '', 'warnings': []}
+        return jsonify({'error': 'Student ID cannot be empty.'}), 400
     
-    # 🔥 Clear global alerts from previous sessions before starting new thread
-    current_state['alerts'].clear()
-    current_state['gaze'] = 'forward'
-    current_state['head_pose'] = 'forward'
+    # Initialize a clean session for this student
+    active_sessions[student_id] = ExamSession(student_id, model_choice)
     
-    Thread(target=run_monitoring, args=(student_id, model_choice)).start()
-    return redirect(url_for('exam'))
+    return jsonify({'status': 'started', 'message': 'Session created successfully.'}), 200
 
-@app.route('/get_alerts')
-def get_alerts():
-    if monitoring_results['status'] == 'completed':
-        return jsonify({'alert': monitoring_results['message']})
+@app.route('/process_frame', methods=['POST'])
+def process_frame():
+    data = request.json
+    student_id = data.get('student_id')
+    
+    if not student_id or student_id not in active_sessions:
+        return jsonify({'error': 'No active session found for this student.'}), 400
 
-    if current_state['alerts']:
-        # 🔥 Pop the alert so the frontend does not endlessly increment violations!
-        return jsonify({'alert': current_state['alerts'].pop(0)})
-
-    return jsonify({'alert': 'No alerts'})
+    session = active_sessions[student_id]
+    
+    # Process the WebRTC frame and return the violation output directly to JS
+    result = session.process_base64_frame(data['image'])
+    return jsonify(result)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -215,7 +219,4 @@ def result():
 
 if __name__ == '__main__':
     init_db()
-    try:
-        app.run(debug=True)
-    finally:
-        release_video_capture()
+    app.run(debug=True)

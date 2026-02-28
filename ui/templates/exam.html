@@ -107,8 +107,17 @@
                 </div>
 
                 <!-- Video Feed -->
-                <div class="video-container" style="aspect-ratio: 4/3; margin-bottom: 15px;">
-                    <img src="/video_feed" alt="Live Video Feed" class="video-stream">
+                <div class="video-container" style="aspect-ratio: 4/3; margin-bottom: 15px; position: relative;">
+                    <!-- WebRTC Video Element replacing Backend MJPEG -->
+                    <video id="userCam" autoplay playsinline class="video-stream"
+                        style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; transform: scaleX(-1);"></video>
+                    <!-- Hidden Canvas to extract Base64 Image Frames -->
+                    <canvas id="hiddenCanvas" style="display: none;"></canvas>
+
+                    <!-- Overlay Canvas for AI Bounding Boxes (Optional enhancements) -->
+                    <canvas id="overlayCanvas"
+                        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; transform: scaleX(-1);"></canvas>
+
                     <!-- Recording Indicator -->
                     <div class="recording-badge" style="top: 10px; right: 10px; font-size: 0.75rem; padding: 4px 10px;">
                         <span class="red-dot" style="width: 8px; height: 8px;"></span> REC
@@ -155,10 +164,73 @@
     <!-- SCRIPT (SAFE: Kept core logic, enhanced UI feedback) -->
     <script>
         let examIntervalsStarted = false;
+        let webcamStream = null;
 
-        function startExamLogic() {
+        async function startWebcam() {
+            try {
+                // Request Webcam Access
+                webcamStream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                const videoEl = document.getElementById('userCam');
+                videoEl.srcObject = webcamStream;
+                return true;
+            } catch (err) {
+                console.error("Camera access denied!", err);
+                alert("Please allow camera permissions to take the exam.");
+                return false;
+            }
+        }
+
+        function captureAndSendFrame() {
+            const videoEl = document.getElementById('userCam');
+            const canvas = document.getElementById('hiddenCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Ensure video is playing
+            if (videoEl.videoWidth === 0) return;
+
+            // Size canvas to video
+            canvas.width = videoEl.videoWidth;
+            canvas.height = videoEl.videoHeight;
+
+            // Draw current video frame to hidden canvas
+            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+            // Convert to Base64 JPEG
+            const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+
+            // Read active parameters
+            const studentId = document.getElementById('student_id').value;
+            const modelChoice = document.getElementById('model_choice').value;
+
+            // Send to Flask
+            fetch('/process_frame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image: base64Image,
+                    student_id: studentId,
+                    model_choice: modelChoice
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    // This API now handles alert polling implicitly!
+                    processBackendAlerts(data);
+                })
+                .catch(err => console.error("Error sending frame:", err));
+        }
+
+        async function startExamLogic() {
             if (examIntervalsStarted) return;
+
+            // Wait for webcam permissions before starting timer
+            const hasCamera = await startWebcam();
+            if (!hasCamera) return;
+
             examIntervalsStarted = true;
+
+            // Extract frames and send to scoring engine every 500ms
+            setInterval(captureAndSendFrame, 500);
 
             // --- Timer Logic ---
             let totalTime = parseInt("{{ duration }}", 10);
@@ -181,7 +253,7 @@
                 totalTime--;
             }, 1000);
 
-            // --- Alert Polling Logic ---
+            // --- Backend Alert Processor (Modified from updateAlerts) ---
             let violationCount = 0;
             let alertBox = document.getElementById('alert-box');
             let alertText = alertBox.querySelector('.alert-text');
@@ -189,73 +261,107 @@
             let statusDot = document.getElementById('status-dot');
             let statusText = document.getElementById('status-text');
 
-            function updateAlerts() {
-                fetch('/get_alerts')
-                    .then(response => response.json())
-                    .then(data => {
-                        let message = data.alert;
+            // Hook this function to the global scope so captureAndSendFrame can read it
+            window.processBackendAlerts = function (data) {
+                if (data.error) {
+                    console.log("Backend error:", data.error);
+                    return;
+                }
 
-                        if (message !== "No alerts") {
-                            // Activate Alert Styling
-                            if (alertBox) alertBox.classList.add("alert-active");
-                            if (alertText) alertText.textContent = message;
-                            if (alertIcon) alertIcon.textContent = "!";
+                // --- Draw Overlay Text ---
+                const overlayCanvas = document.getElementById('overlayCanvas');
+                if (overlayCanvas) {
+                    // Match resolution to the video stream size
+                    const videoEl = document.getElementById('userCam');
+                    overlayCanvas.width = videoEl.videoWidth || 640;
+                    overlayCanvas.height = videoEl.videoHeight || 480;
 
-                            // Play alert sound
-                            let alertSound = document.getElementById('alertSound');
-                            if (alertSound) {
-                                alertSound.play().catch(e => console.log("Audio play blocked by browser:", e));
-                            }
+                    const ctx = overlayCanvas.getContext('2d');
+                    ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-                            // Status indicator to Warning
-                            if (statusDot) {
-                                statusDot.classList.remove('active');
-                                statusDot.classList.add('warning');
-                            }
-                            if (statusText) statusText.textContent = "Warning Detected";
+                    // Note: Because the video is flipped via CSS transform: scaleX(-1),
+                    // We must flip the canvas context before drawing text, otherwise text is backwards
+                    ctx.save();
+                    ctx.translate(overlayCanvas.width, 0);
+                    ctx.scale(-1, 1);
 
-                            if (message.includes("Warning")) {
-                                violationCount++;
-                                let vCountElem = document.getElementById("violation-count");
-                                if (vCountElem) vCountElem.textContent = violationCount;
+                    ctx.font = "20px Arial";
+                    ctx.fillStyle = "red";
+                    ctx.fillText(`Gaze: ${data.gaze || 'unknown'}`, 20, 30);
 
-                                // Visual shake animation on the counter
-                                if (document.querySelector('.violation-card')) {
-                                    const vCard = document.querySelector('.violation-card');
-                                    vCard.classList.remove('shake');
-                                    void vCard.offsetWidth; // trigger layout reflow
-                                    vCard.classList.add('shake');
-                                }
-                            }
+                    ctx.fillStyle = "green";
+                    ctx.fillText(`Head: ${data.head || 'unknown'}`, 20, 60);
 
-                            if (message.includes('terminated')) {
-                                if (statusText) statusText.textContent = "Exam Terminated";
-                                if (statusDot) statusDot.classList.replace('warning', 'terminated');
-                                window.location.href = '/result?message=' + encodeURIComponent(message);
-                            }
+                    ctx.restore();
+                }
 
-                            // Remove flash class after a short delay
-                            setTimeout(() => {
-                                if (alertBox) alertBox.classList.remove("alert-active");
-                            }, 2000);
+                let message = data.alert || "No alerts";
 
+                if (message !== "No alerts") {
+                    // Activate Alert Styling
+                    if (alertBox) alertBox.classList.add("alert-active");
+                    if (alertText) alertText.textContent = message;
+                    if (alertIcon) alertIcon.textContent = "!";
+
+                    // Play alert sound
+                    let alertSound = document.getElementById('alertSound');
+                    if (alertSound) {
+                        alertSound.play().catch(e => console.log("Audio play blocked by browser:", e));
+                    }
+
+                    // Status indicator to Warning
+                    if (statusDot) {
+                        statusDot.classList.remove('active');
+                        statusDot.classList.add('warning');
+                    }
+                    if (statusText) statusText.textContent = "Warning Detected";
+
+                    if (message.includes("Warning")) {
+                        // Increase violation counter seamlessly
+                        if (data.violation_count !== undefined) {
+                            violationCount = data.violation_count;
                         } else {
-                            // Reset to normal state
-                            if (alertBox) alertBox.classList.remove("alert-active");
-                            if (alertText) alertText.textContent = "System Normal. No alerts detected.";
-                            if (alertIcon) alertIcon.textContent = "✓";
-
-                            if (statusDot) {
-                                statusDot.classList.remove('warning', 'terminated');
-                                statusDot.classList.add('active');
-                            }
-                            if (statusText) statusText.textContent = "System Active";
+                            violationCount++;
                         }
-                    })
-                    .catch(error => console.error('Error fetching alerts:', error));
-            }
+                        let vCountElem = document.getElementById("violation-count");
+                        if (vCountElem) vCountElem.textContent = violationCount;
 
-            setInterval(updateAlerts, 800);
+                        // Visual shake animation on the counter
+                        if (document.querySelector('.violation-card')) {
+                            const vCard = document.querySelector('.violation-card');
+                            vCard.classList.remove('shake');
+                            void vCard.offsetWidth; // trigger layout reflow
+                            vCard.classList.add('shake');
+                        }
+                    }
+
+                    if (message.includes('terminated')) {
+                        if (statusText) statusText.textContent = "Exam Terminated";
+                        if (statusDot) statusDot.classList.replace('warning', 'terminated');
+
+                        // Stop camera on termination
+                        if (webcamStream) webcamStream.getTracks().forEach(track => track.stop());
+                        window.location.href = '/result?message=' + encodeURIComponent(message);
+                    }
+
+                    // Remove flash class after a short delay
+                    setTimeout(() => {
+                        if (alertBox) alertBox.classList.remove("alert-active");
+                    }, 2000);
+
+                } else {
+                    // Reset to normal state
+                    if (alertBox) alertBox.classList.remove("alert-active");
+                    if (alertText) alertText.textContent = "System Normal. No alerts detected.";
+                    if (alertIcon) alertIcon.textContent = "✓";
+
+                    if (statusDot) {
+                        statusDot.classList.remove('warning', 'terminated');
+                        statusDot.classList.add('active');
+                    }
+                    if (statusText) statusText.textContent = "System Active";
+                }
+            };
         }
 
         // Check if exam is already running (e.g. from page refresh)
@@ -283,7 +389,8 @@
                 const studentId = document.getElementById('student_id').value;
                 const modelChoice = document.getElementById('model_choice').value;
 
-                // Execute AJAX Post manually to avoid page reload, saving audio state
+                // Stop form submission. All logic is driven by JS now.
+                // We ask backend to register the session in the DB, then we start webcam intervals
                 fetch('/start_monitoring', {
                     method: 'POST',
                     body: new URLSearchParams({

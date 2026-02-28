@@ -65,9 +65,13 @@ def get_gaze_direction(face_landmarks, frame_width, frame_height, calibration_of
     print(f"Eye center: ({eye_center_x:.2f}, {eye_center_y:.2f}), Nose: ({nose_x:.2f}, {nose_y:.2f}), x_diff: {x_diff:.2f}, y_diff: {y_diff:.2f}")
 
     # Adjusted thresholds for 480x640 frames
-    if abs(y_diff) > 7.2:
-        return "down" if y_diff > 0 else "up"
-    if abs(x_diff) > 10:
+    # Make "up" more forgiving since looking at a standard monitor can tilt the face up
+    if y_diff > 10.0:
+        return "down"
+    elif y_diff < -15.0:  # Much higher threshold for "up"
+        return "up"
+    
+    if abs(x_diff) > 12.0:
         return "left" if x_diff > 0 else "right"
     return "forward"
 
