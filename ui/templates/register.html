@@ -1,16 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>Register Face</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Proctoring System - Register Face</title>
+    <!-- Google Fonts for typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-    <h1>Register Face</h1>
-    <form method="POST" action="{{ url_for('register') }}">
-        <label for="student_id">Student ID:</label>
-        <input type="text" id="student_id" name="student_id" required>
-        <input type="submit" value="Register">
-    </form>
-    <a href="{{ url_for('index') }}">Back to Home</a>
+
+<body class="dark-theme">
+    <div class="dashboard">
+        <!-- Dashboard Header -->
+        <header class="dashboard-header" style="justify-content: center;">
+            <div class="logo">
+                <span class="icon">📸</span>
+                <h1>Face Registration</h1>
+            </div>
+        </header>
+
+        <main class="dashboard-grid" style="grid-template-columns: 1fr; max-width: 600px; margin: 0 auto;">
+            <section class="panel form-container" style="border-top: none; padding-top: 24px;">
+                <h3 style="text-align: center; font-size: 1.25rem; margin-bottom: 8px;">Register Your Identity</h3>
+                <p class="form-desc" style="text-align: center; margin-bottom: 24px;">Enter your Student ID to register
+                    your face in the system.</p>
+
+                <form method="POST" action="{{ url_for('register') }}">
+                    <div class="input-group">
+                        <label for="student_id" style="text-align: left;">Student ID</label>
+                        <input type="text" id="student_id" name="student_id" placeholder="e.g. STU-10293" required>
+                    </div>
+
+                    <button type="submit" class="btn-primary" style="margin-top: 10px;">
+                        <span>Capture & Register</span>
+                    </button>
+                </form>
+
+                <div style="text-align: center; margin-top: 24px;">
+                    <a class="back-link" href="{{ url_for('index') }}" style="display: inline-block;">← Back to Home</a>
+                </div>
+            </section>
+        </main>
+    </div>
 </body>
+
 </html>

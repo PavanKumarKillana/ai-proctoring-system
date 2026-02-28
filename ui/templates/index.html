@@ -1,12 +1,52 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>AI Proctoring System</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Proctoring System - Home</title>
+    <!-- Google Fonts for typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-    <h1>{{ message }}</h1>
-    <a href="{{ url_for('register') }}">Register Face</a> | 
-    <a href="{{ url_for('verify') }}">Verify Face</a>
+
+<body class="dark-theme">
+    <div class="dashboard">
+        <!-- Dashboard Header -->
+        <header class="dashboard-header" style="justify-content: center;">
+            <div class="logo">
+                <span class="icon">🛡️</span>
+                <h1>ProctorAI System</h1>
+            </div>
+        </header>
+
+        <main class="dashboard-grid" style="grid-template-columns: 1fr; max-width: 600px; margin: 0 auto;">
+            <section class="panel form-container" style="border-top: none; padding-top: 24px;">
+                <h3 style="text-align: center; font-size: 1.5rem; margin-bottom: 20px;">Welcome</h3>
+
+                {% if message %}
+                <div class="alert-container alert-active" style="margin-bottom: 24px; justify-content: center;">
+                    <div class="alert-icon">ℹ️</div>
+                    <div class="alert-text">{{ message }}</div>
+                </div>
+                {% endif %}
+
+                <p class="form-desc" style="text-align: center; margin-bottom: 30px;">Please select an option below to
+                    proceed.</p>
+
+                <div style="display: flex; gap: 16px; justify-content: center;">
+                    <a href="{{ url_for('register') }}" class="btn-primary"
+                        style="text-decoration: none; max-width: 200px;">
+                        <span>Register Face</span>
+                    </a>
+                    <a href="{{ url_for('verify') }}" class="btn-primary"
+                        style="text-decoration: none; max-width: 200px; background: var(--panel-border); color: var(--text-main);">
+                        <span>Verify Face</span>
+                    </a>
+                </div>
+            </section>
+        </main>
+    </div>
 </body>
+
 </html>

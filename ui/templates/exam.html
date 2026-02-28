@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Exam Proctoring Dashboard</title>
+    <!-- Google Fonts for typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body class="dark-theme">
+    <div class="dashboard">
+        <!-- Dashboard Header -->
+        <header class="dashboard-header">
+            <div class="logo">
+                <span class="icon">🛡️</span>
+                <h1>ProctorAI Monitor</h1>
+            </div>
+            <div class="status-indicator">
+                <div class="indicator-dot active" id="status-dot"></div>
+                <span id="status-text">System Active</span>
+            </div>
+        </header>
+
+        <main class="dashboard-grid" style="grid-template-columns: 2fr 1fr; align-items: stretch;">
+            <!-- Left Column: Mock Exam Canvas -->
+            <section class="panel exam-canvas-panel" style="display: flex; flex-direction: column;">
+                <div class="panel-header"
+                    style="border-bottom: 1px solid var(--panel-border); padding-bottom: 12px; margin-bottom: 20px;">
+                    <h2>📝 Final Assessment Paper</h2>
+                </div>
+
+                <div class="exam-content" style="flex: 1; display: flex; flex-direction: column; gap: 20px;">
+                    <!-- Real Canvas -->
+                    <div id="real-exam-canvas"
+                        style="flex: 1; display: {% if is_running %}flex{% else %}none{% endif %}; flex-direction: column; gap: 20px;">
+                        <div>
+                            <h3 style="color: var(--text-main); font-size: 1.15rem; margin-bottom: 8px;">Question 1 (10
+                                Marks)</h3>
+                            <p style="color: var(--text-muted); line-height: 1.6;">
+                                Explain the architecture of a Convolutional Neural Network (CNN). How does it differ
+                                fundamentally from a standard Multi-Layer Perceptron (MLP) for image processing tasks?
+                            </p>
+                        </div>
+                        <textarea
+                            style="flex: 1; min-height: 350px; width: 100%; background: rgba(0,0,0,0.2); border: 1px solid var(--panel-border); border-radius: 8px; color: var(--text-main); padding: 16px; resize: none; font-family: inherit; font-size: 1rem; line-height: 1.6;"
+                            placeholder="Type your answer here..."></textarea>
+                    </div>
+
+                    <!-- Placeholder -->
+                    <div id="exam-placeholder"
+                        style="flex: 1; display: {% if is_running %}none{% else %}flex{% endif %}; align-items: center; justify-content: center; border: 2px dashed var(--panel-border); border-radius: 8px; background: rgba(0,0,0,0.1);">
+                        <p style="color: var(--text-muted); text-align: center; font-size: 1.1rem; line-height: 1.6;">
+                            Your exam questions will appear here once you click<br>
+                            <span style="color: var(--success); font-weight: 600;">Start Secure Monitoring</span>
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Info, Stats, Camera & Form -->
+            <section class="panel sidebar-panel">
+
+                <div class="form-container"
+                    style="border-top: none; padding-top: 0; margin-top: 0; margin-bottom: 20px; text-align: center;">
+
+                    <!-- Pre-Exam Form -->
+                    <div id="start-form-container" style="display: {% if is_running %}none{% else %}block{% endif %};">
+                        <h3 style="margin-bottom: 12px;">Start Exam Session</h3>
+                        <form id="start-exam-form" action="/start_monitoring" method="post" class="exam-form">
+                            <div class="input-group" style="text-align: left;">
+                                <label for="student_id" style="font-size: 0.8rem;">Candidate ID (Verified)</label>
+                                <input type="text" id="student_id" name="student_id" value="{{ student_id }}"
+                                    placeholder="e.g. STU-10293" required readonly
+                                    style="background: rgba(0,0,0,0.2); color: var(--text-muted);">
+                            </div>
+                            <!-- AI Engine Toggle -->
+                            <div class="input-group" style="text-align: left; margin-bottom: 20px;">
+                                <label for="model_choice" style="font-size: 0.8rem;">Select AI Tracking Engine</label>
+                                <select id="model_choice" name="model_choice"
+                                    style="background: rgba(0,0,0,0.2); color: var(--text-main); border: 1px solid var(--panel-border); border-radius: 4px; padding: 10px; width: 100%; font-family: inherit; margin-top: 5px;">
+                                    <option value="mediapipe">MediaPipe Baseline (Fast)</option>
+                                    <option value="custom_mobilenet">Custom MobileNetV2 (Accurate)</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn-primary" style="background: var(--success); width: 100%;">
+                                <span>Start Secure Monitoring</span>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <polyline points="12 5 19 12 12 19"></polyline>
+                                </svg>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Post-Start Badge -->
+                    <div id="active-monitoring-badge"
+                        style="display: {% if is_running %}block{% else %}none{% endif %}; padding: 16px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 8px;">
+                        <h3 style="color: var(--success); margin-bottom: 8px; font-size: 1.1rem;">Monitoring Active 🔒
+                        </h3>
+                        <p style="color: var(--success); font-size: 0.85rem; opacity: 0.8;">Your exam session is being
+                            recorded.</p>
+                    </div>
+                </div>
+
+                <!-- Video Feed -->
+                <div class="video-container" style="aspect-ratio: 4/3; margin-bottom: 15px;">
+                    <img src="/video_feed" alt="Live Video Feed" class="video-stream">
+                    <!-- Recording Indicator -->
+                    <div class="recording-badge" style="top: 10px; right: 10px; font-size: 0.75rem; padding: 4px 10px;">
+                        <span class="red-dot" style="width: 8px; height: 8px;"></span> REC
+                    </div>
+                </div>
+
+                <!-- Alert Box -->
+                <div class="alert-container" id="alert-box"
+                    style="margin-bottom: 15px; padding: 12px; font-size: 0.9rem;">
+                    <div class="alert-icon" style="width: 24px; height: 24px; font-size: 0.9rem;">✓</div>
+                    <div class="alert-text">System Normal.</div>
+                </div>
+
+                <!-- Timer & Violations Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                    <!-- Timer -->
+                    <div class="stat-card timer-card"
+                        style="padding: 12px; flex-direction: column; gap: 8px; align-items: center; text-align: center;">
+                        <div class="stat-icon" style="width: 40px; height: 40px; font-size: 1.25rem;">⏱️</div>
+                        <div class="stat-content">
+                            <p class="stat-label" style="font-size: 0.7rem;">Time Left</p>
+                            <h2 class="stat-value" id="countdown" style="font-size: 1.25rem;">--:--</h2>
+                        </div>
+                    </div>
+
+                    <!-- Violation Counter -->
+                    <div class="stat-card violation-card"
+                        style="padding: 12px; flex-direction: column; gap: 8px; align-items: center; text-align: center;">
+                        <div class="stat-icon" style="width: 40px; height: 40px; font-size: 1.25rem;">⚠️</div>
+                        <div class="stat-content">
+                            <p class="stat-label" style="font-size: 0.7rem;">Alerts</p>
+                            <h2 class="stat-value" id="violation-count" style="font-size: 1.25rem;">0</h2>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- Hidden Audio for Alerts -->
+    <audio id="alertSound" src="/static/alert.mp3" preload="auto"></audio>
+
+    <!-- SCRIPT (SAFE: Kept core logic, enhanced UI feedback) -->
+    <script>
+        let examIntervalsStarted = false;
+
+        function startExamLogic() {
+            if (examIntervalsStarted) return;
+            examIntervalsStarted = true;
+
+            // --- Timer Logic ---
+            let totalTime = parseInt("{{ duration }}", 10);
+            let timerDisplay = document.getElementById("countdown");
+
+            setInterval(function () {
+                let minutes = Math.floor(totalTime / 60);
+                let seconds = totalTime % 60;
+
+                timerDisplay.textContent = minutes + ":" + (seconds < 10 ? "0" + seconds : seconds);
+
+                // Highlight timer in red when under 5 minutes (300 seconds)
+                if (totalTime <= 300 && totalTime > 0) {
+                    document.querySelector('.timer-card').classList.add('urgent');
+                }
+
+                if (totalTime <= 0) {
+                    window.location.href = "/result?message=Exam Time Finished";
+                }
+                totalTime--;
+            }, 1000);
+
+            // --- Alert Polling Logic ---
+            let violationCount = 0;
+            let alertBox = document.getElementById('alert-box');
+            let alertText = alertBox.querySelector('.alert-text');
+            let alertIcon = alertBox.querySelector('.alert-icon');
+            let statusDot = document.getElementById('status-dot');
+            let statusText = document.getElementById('status-text');
+
+            function updateAlerts() {
+                fetch('/get_alerts')
+                    .then(response => response.json())
+                    .then(data => {
+                        let message = data.alert;
+
+                        if (message !== "No alerts") {
+                            // Activate Alert Styling
+                            if (alertBox) alertBox.classList.add("alert-active");
+                            if (alertText) alertText.textContent = message;
+                            if (alertIcon) alertIcon.textContent = "!";
+
+                            // Play alert sound
+                            let alertSound = document.getElementById('alertSound');
+                            if (alertSound) {
+                                alertSound.play().catch(e => console.log("Audio play blocked by browser:", e));
+                            }
+
+                            // Status indicator to Warning
+                            if (statusDot) {
+                                statusDot.classList.remove('active');
+                                statusDot.classList.add('warning');
+                            }
+                            if (statusText) statusText.textContent = "Warning Detected";
+
+                            if (message.includes("Warning")) {
+                                violationCount++;
+                                let vCountElem = document.getElementById("violation-count");
+                                if (vCountElem) vCountElem.textContent = violationCount;
+
+                                // Visual shake animation on the counter
+                                if (document.querySelector('.violation-card')) {
+                                    const vCard = document.querySelector('.violation-card');
+                                    vCard.classList.remove('shake');
+                                    void vCard.offsetWidth; // trigger layout reflow
+                                    vCard.classList.add('shake');
+                                }
+                            }
+
+                            if (message.includes('terminated')) {
+                                if (statusText) statusText.textContent = "Exam Terminated";
+                                if (statusDot) statusDot.classList.replace('warning', 'terminated');
+                                window.location.href = '/result?message=' + encodeURIComponent(message);
+                            }
+
+                            // Remove flash class after a short delay
+                            setTimeout(() => {
+                                if (alertBox) alertBox.classList.remove("alert-active");
+                            }, 2000);
+
+                        } else {
+                            // Reset to normal state
+                            if (alertBox) alertBox.classList.remove("alert-active");
+                            if (alertText) alertText.textContent = "System Normal. No alerts detected.";
+                            if (alertIcon) alertIcon.textContent = "✓";
+
+                            if (statusDot) {
+                                statusDot.classList.remove('warning', 'terminated');
+                                statusDot.classList.add('active');
+                            }
+                            if (statusText) statusText.textContent = "System Active";
+                        }
+                    })
+                    .catch(error => console.error('Error fetching alerts:', error));
+            }
+
+            setInterval(updateAlerts, 800);
+        }
+
+        // Check if exam is already running (e.g. from page refresh)
+        {% if is_running %}
+        startExamLogic();
+        {% endif %}
+
+        // Handle AJAX form submission for seamless start
+        const startForm = document.getElementById('start-exam-form');
+        if (startForm) {
+            startForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                // UNLOCK AUDIO CONTEXT ON DIRECT USER CLICK
+                let alertSound = document.getElementById('alertSound');
+                if (alertSound) {
+                    alertSound.volume = 0; // Mute for the initial invisible play
+                    alertSound.play().then(() => {
+                        alertSound.pause();
+                        alertSound.volume = 1; // Restore volume for real alerts
+                        alertSound.currentTime = 0;
+                    }).catch(err => console.log("Audio unlock failed:", err));
+                }
+
+                const studentId = document.getElementById('student_id').value;
+                const modelChoice = document.getElementById('model_choice').value;
+
+                // Execute AJAX Post manually to avoid page reload, saving audio state
+                fetch('/start_monitoring', {
+                    method: 'POST',
+                    body: new URLSearchParams({
+                        'student_id': studentId,
+                        'model_choice': modelChoice
+                    }),
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                }).then(response => {
+                    // We expect a redirect response from Flask
+                    if (response.redirected || response.ok) {
+                        // Seamlessly toggle UI
+                        let formContainer = document.getElementById('start-form-container');
+                        let badge = document.getElementById('active-monitoring-badge');
+                        let placeholder = document.getElementById('exam-placeholder');
+                        let realCanvas = document.getElementById('real-exam-canvas');
+
+                        if (formContainer) formContainer.style.display = 'none';
+                        if (badge) badge.style.display = 'block';
+                        if (placeholder) placeholder.style.display = 'none';
+                        if (realCanvas) realCanvas.style.display = 'flex';
+
+                        // Start intervals!
+                        startExamLogic();
+                    }
+                }).catch(error => {
+                    console.error('Submission failed:', error);
+                });
+            });
+        }
+    </script>
+</body>
+
+</html>

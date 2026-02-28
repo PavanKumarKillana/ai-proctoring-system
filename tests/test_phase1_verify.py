@@ -1,9 +1,13 @@
-from src.face_module import verify_face
+from src.face_module import verify_face_with_gaze
 
-student_id = "test_student"
-success = verify_face(student_id)
+def test_verify_face():
+    student_id = "test_student"
+    print(f"Starting face verification for {student_id}...")
+    success, message = verify_face_with_gaze(student_id, tolerance=0.5, max_attempts=300, timeout_seconds=60, model="cnn")
+    if success:
+        print(f"Face verification successful for {student_id}!")
+    else:
+        print(f"Face verification failed for {student_id}: {message}")
 
-if success:
-    print("Face verification successful!")
-else:
-    print("Face verification failed.")
+if __name__ == "__main__":
+    test_verify_face()

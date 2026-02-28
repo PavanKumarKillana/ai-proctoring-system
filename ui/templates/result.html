@@ -1,11 +1,56 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <title>Result</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Proctoring System - Result</title>
+    <!-- Google Fonts for typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-    <h1>{{ message }}</h1>
-    <a href="{{ url_for('index') }}">Back to Home</a>
+
+<body class="dark-theme">
+    <div class="dashboard">
+        <!-- Dashboard Header -->
+        <header class="dashboard-header" style="justify-content: center; border-color: var(--accent-blue);">
+            <div class="logo">
+                <span class="icon">📋</span>
+                <h1>Monitoring Result</h1>
+            </div>
+        </header>
+
+        <main class="dashboard-grid" style="grid-template-columns: 1fr; max-width: 600px; margin: 0 auto;">
+            <section class="panel" style="text-align: center; padding: 40px 24px;">
+
+                <div class="alert-icon"
+                    style="margin: 0 auto 20px auto; width: 64px; height: 64px; font-size: 2rem; background: var(--panel-border); color: var(--text-main);">
+                    ℹ️
+                </div>
+
+                <h2 style="font-size: 1.5rem; margin-bottom: 12px; color: var(--text-main);">Exam Session Completed</h2>
+
+                <div class="result-message"
+                    style="margin: 20px 0; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid var(--panel-border); font-weight: 500;">
+                    {{ message }}
+                </div>
+
+                <div style="margin-top: 30px; display: flex; gap: 16px; justify-content: center;">
+                    <a class="back-link" href="{{ url_for('index') }}"
+                        style="display: inline-block; padding: 12px 24px; background: var(--panel-border); color: var(--text-main); border: none; margin-top: 0;">
+                        Return to Dashboard
+                    </a>
+
+                    {% if action_url %}
+                    <a class="action-link" href="{{ action_url }}"
+                        style="display: inline-block; padding: 12px 24px; background: var(--accent-blue); color: white; border: none; border-radius: 8px; font-weight: 600; text-decoration: none;">
+                        {{ action_text }}
+                    </a>
+                    {% endif %}
+                </div>
+            </section>
+        </main>
+    </div>
 </body>
+
 </html>
