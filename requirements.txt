@@ -7,3 +7,4 @@ ultralytics
 pillow
 gunicorn
 numpy
+face-recognition
