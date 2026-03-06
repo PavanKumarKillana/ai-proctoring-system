@@ -106,8 +106,8 @@ You'll need `yolov8n.pt` in the root directory (downloads automatically first ru
 
 ---
 
-## Team
+## team(individual)
 
-B.Tech CSE — Amrita School of Engineering
+B.Tech AI & DS — Amrita School of Engineering
 
-Built for the AI/ML lab project submission.
+Built for the School of AI department for online exams 
