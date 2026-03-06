@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Proctoring System - Verify Face</title>
+    <!-- Google Fonts for typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body class="dark-theme">
+    <div class="dashboard">
+        <!-- Dashboard Header -->
+        <header class="dashboard-header" style="justify-content: center;">
+            <div class="logo">
+                <span class="icon">🔍</span>
+                <h1>Face Verification</h1>
+            </div>
+        </header>
+
+        <main class="dashboard-grid" style="grid-template-columns: 1fr; max-width: 600px; margin: 0 auto;">
+            <section class="panel form-container" style="border-top: none; padding-top: 24px;">
+                <h3 style="text-align: center; font-size: 1.25rem; margin-bottom: 8px;">Verify Your Identity</h3>
+                <p class="form-desc" style="text-align: center; margin-bottom: 24px;">Enter your Student ID to verify
+                    prior to examination.</p>
+
+                <form id="verify-form" onsubmit="submitForm(event)">
+                    <div class="input-group">
+                        <label for="student_id" style="text-align: left;">Student ID</label>
+                        <input type="text" id="student_id" name="student_id" placeholder="e.g. STU-10293" required>
+                    </div>
+
+                    <!-- Quality Meter (Production_2) -->
+                    <div id="quality-bar-wrap" style="display:none; margin-top:14px;">
+                        <div
+                            style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                            <span style="font-size:0.78rem; color:#94a3b8;">Image Quality</span>
+                            <span id="quality-label" style="font-size:0.78rem; font-weight:600;">Checking…</span>
+                        </div>
+                        <div style="background:#1e293b; border-radius:6px; height:8px; overflow:hidden;">
+                            <div id="quality-fill"
+                                style="height:100%; width:0%; border-radius:6px; transition:width .4s, background .4s;">
+                            </div>
+                        </div>
+                        <p id="quality-hint" style="font-size:0.74rem; color:#64748b; margin:6px 0 0;"></p>
+                    </div>
+
+                    <!-- Hidden input to hold base64 image data from Expo Native Camera -->
+                    <input type="hidden" id="image_base64" name="image_base64">
+
+                    <!-- Browser fallback: file input opens native camera (works over HTTP) -->
+                    <input type="file" id="browserCameraInput" accept="image/*" capture="user" style="display:none;"
+                        onchange="handleBrowserPhoto(this)">
+
+                    <!-- Video Preview Area -->
+                    <div id="camera-preview"
+                        style="width: 100%; aspect-ratio: 4/3; background: #222; margin-top: 15px; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; border: 1px solid var(--panel-border);">
+                        <span id="preview-text" style="color: #64748b;">No Photo Taken</span>
+                        <img id="preview-image"
+                            style="width: 100%; height: 100%; object-fit: cover; display: none; transform: scaleX(-1);">
+                    </div>
+
+                    <button type="button" class="btn-secondary"
+                        style="margin-top: 15px; width: 100%; padding: 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; font-weight: 600;"
+                        onclick="requestNativePicture()">
+                        📸 Take Native Photo
+                    </button>
+
+                    <button type="submit" id="submit-btn" class="btn-primary"
+                        style="margin-top: 15px; background: var(--success);" disabled>
+                        <span>Verify Identity</span>
+                    </button>
+                </form>
+
+                <script>
+                    let _browserStream = null;
+
+                    function requestNativePicture() {
+                        if (window.isExpoApp || window.ReactNativeWebView) {
+                            if (!window.ReactNativeWebView) { setTimeout(requestNativePicture, 50); return; }
+                            window.ReactNativeWebView.postMessage(JSON.stringify({ action: 'take_single_picture' }));
+                            document.getElementById('preview-text').innerText = "Capturing...";
+                        } else {
+                            // BROWSER MODE: try getUserMedia first (works on desktop/localhost)
+                            // If blocked (HTTP on mobile), fall back to file input
+                            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } })
+                                    .then(function (stream) {
+                                        _browserStream = stream;
+                                        // Show live preview
+                                        const previewDiv = document.getElementById('camera-preview');
+                                        let vid = document.createElement('video');
+                                        vid.id = 'liveVideo'; vid.autoplay = true; vid.playsInline = true;
+                                        vid.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:8px;';
+                                        vid.srcObject = stream;
+                                        document.getElementById('preview-text').style.display = 'none';
+                                        document.getElementById('preview-image').style.display = 'none';
+                                        previewDiv.appendChild(vid);
+                                        // Change button to Snap
+                                        const btn = document.querySelector('button[onclick="requestNativePicture()"]');
+                                        if (btn) { btn.textContent = '📸 Snap Photo'; btn.onclick = snapPhoto; }
+                                    })
+                                    .catch(function () {
+                                        // getUserMedia blocked (HTTP mobile) — use file input
+                                        document.getElementById('browserCameraInput').click();
+                                    });
+                            } else {
+                                document.getElementById('browserCameraInput').click();
+                            }
+                        }
+                    }
+
+                    function snapPhoto() {
+                        const vid = document.getElementById('liveVideo');
+                        if (!vid) return;
+                        const c = document.createElement('canvas');
+                        c.width = vid.videoWidth; c.height = vid.videoHeight;
+                        c.getContext('2d').drawImage(vid, 0, 0);
+                        window.receivePicture(c.toDataURL('image/jpeg', 0.9));
+                        if (_browserStream) _browserStream.getTracks().forEach(t => t.stop());
+                        vid.style.display = 'none';
+                    }
+
+                    function handleBrowserPhoto(input) {
+                        const file = input.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = function (e) { window.receivePicture(e.target.result); };
+                        reader.readAsDataURL(file);
+                    }
+
+                    // ── Quality Check ──────────────────────────────────────────
+                    function analyzeQuality(base64Data, callback) {
+                        const img = new Image();
+                        img.onload = function () {
+                            const c = document.createElement('canvas');
+                            c.width = img.width; c.height = img.height;
+                            const ctx = c.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+                            const pix = ctx.getImageData(0, 0, c.width, c.height).data;
+                            let rSum = 0, gSum = 0, bSum = 0, n = pix.length / 4;
+                            for (let i = 0; i < pix.length; i += 4) { rSum += pix[i]; gSum += pix[i + 1]; bSum += pix[i + 2]; }
+                            const brightness = (rSum + gSum + bSum) / (3 * n);
+                            const gray = []; for (let i = 0; i < pix.length; i += 4) gray.push((pix[i] * 0.299 + pix[i + 1] * 0.587 + pix[i + 2] * 0.114));
+                            const mean = gray.reduce((a, b) => a + b, 0) / gray.length;
+                            const variance = gray.reduce((a, b) => a + (b - mean) ** 2, 0) / gray.length;
+                            callback({ brightness, blur: variance });
+                        };
+                        img.src = base64Data;
+                    }
+
+                    function showQuality(metrics) {
+                        const wrap = document.getElementById('quality-bar-wrap');
+                        const fill = document.getElementById('quality-fill');
+                        const label = document.getElementById('quality-label');
+                        const hint = document.getElementById('quality-hint');
+                        const btn = document.getElementById('submit-btn');
+                        wrap.style.display = 'block';
+                        const bright = metrics.brightness, blur = metrics.blur;
+                        let score = 100, issues = [];
+                        if (bright < 40) { score -= 60; issues.push('Too dark — use more light'); }
+                        else if (bright > 235) { score -= 40; issues.push('Overexposed — reduce glare'); }
+                        if (blur < 200) { score -= 40; issues.push('Too blurry — hold still'); }
+                        score = Math.max(0, score);
+                        fill.style.width = score + '%';
+                        fill.style.background = score >= 70 ? '#4ade80' : score >= 40 ? '#fb923c' : '#f87171';
+                        if (issues.length === 0) {
+                            label.textContent = '✅ Good'; label.style.color = '#4ade80';
+                            hint.textContent = 'Photo quality is good. Ready to verify.';
+                            btn.disabled = false;
+                        } else {
+                            label.textContent = '⚠ Adjust'; label.style.color = '#fb923c';
+                            hint.textContent = issues.join(' • ');
+                            btn.disabled = true;
+                        }
+                    }
+
+                    // Called by Expo native code OR browser file picker
+                    window.receivePicture = function (base64Data) {
+                        document.getElementById('image_base64').value = base64Data;
+                        document.getElementById('preview-image').src = base64Data;
+                        document.getElementById('preview-image').style.display = 'block';
+                        document.getElementById('preview-text').style.display = 'none';
+                        document.getElementById('submit-btn').disabled = true; // wait for quality check
+                        analyzeQuality(base64Data, showQuality);
+                    }
+
+                    async function submitForm(event) {
+                        event.preventDefault();
+                        const btn = document.getElementById('submit-btn');
+                        btn.disabled = true;
+                        btn.innerHTML = '<span>Verifying... Please wait</span>';
+
+                        const student_id = document.getElementById('student_id').value;
+                        const image_base64 = document.getElementById('image_base64').value;
+
+                        if (!image_base64) {
+                            alert("Please tap 'Take Native Photo' first!");
+                            btn.disabled = false;
+                            btn.innerHTML = '<span>Verify Identity</span>';
+                            return;
+                        }
+
+                        try {
+                            const res = await fetch("{{ url_for('verify') }}", {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ student_id: student_id, image_base64: image_base64 })
+                            });
+
+                            // Follow the verification result redirect
+                            if (res.redirected) {
+                                window.location.href = res.url;
+                            } else if (res.ok) {
+                                // Default fallback just in case
+                                window.location.href = "/";
+                            } else {
+                                const msg = await res.text();
+                                alert("Error: " + msg);
+                                btn.disabled = false;
+                                btn.innerHTML = '<span>Verify Identity</span>';
+                            }
+                        } catch (e) {
+                            alert("Network error. Your photo is large and may take a moment to compress. Please try again.");
+                            btn.disabled = false;
+                            btn.innerHTML = '<span>Verify Identity</span>';
+                        }
+                    }
+                </script>
+
+                <div style="text-align: center; margin-top: 24px;">
+                    <a class="back-link" href="{{ url_for('index') }}" style="display: inline-block;">← Back to Home</a>
+                </div>
+            </section>
+        </main>
+    </div>
+</body>
+
+</html>

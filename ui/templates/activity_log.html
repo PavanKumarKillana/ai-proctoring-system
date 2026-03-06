@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exam Activity Log – AI Proctoring</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .activity-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .stat-card {
+            background: var(--panel-bg, #1e293b);
+            border: 1px solid var(--panel-border, #334155);
+            border-radius: 12px;
+            padding: 18px;
+            text-align: center;
+        }
+
+        .stat-card .num {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #38bdf8;
+        }
+
+        .stat-card.danger .num {
+            color: #f87171;
+        }
+
+        .stat-card.success .num {
+            color: #4ade80;
+        }
+
+        .stat-card .label {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+
+        .timeline {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.83rem;
+        }
+
+        .timeline th {
+            background: #0f172a;
+            color: #94a3b8;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+
+        .timeline td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #1e293b;
+            color: #e2e8f0;
+        }
+
+        .timeline tr:hover td {
+            background: #1e293b;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 99px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        .badge-ok {
+            background: #14532d;
+            color: #4ade80;
+        }
+
+        .badge-warn {
+            background: #7c2d12;
+            color: #fb923c;
+        }
+
+        .badge-forward {
+            background: #1e3a5f;
+            color: #7dd3fc;
+        }
+
+        .badge-away {
+            background: #3b0764;
+            color: #d8b4fe;
+        }
+
+        .badge-missing {
+            background: #431407;
+            color: #fca5a5;
+        }
+
+        .badge-object {
+            background: #422006;
+            color: #fcd34d;
+        }
+
+        .chart-wrap {
+            background: var(--panel-bg, #1e293b);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+            position: relative;
+            height: 120px;
+            overflow: hidden;
+        }
+
+        .chart-bar {
+            display: inline-block;
+            width: 6px;
+            margin-right: 2px;
+            border-radius: 3px 3px 0 0;
+            position: absolute;
+            bottom: 0;
+        }
+
+        .search-form {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 28px;
+        }
+
+        .search-form input {
+            flex: 1;
+            min-width: 180px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: inherit;
+        }
+
+        .search-form button {
+            padding: 10px 22px;
+            border-radius: 8px;
+            background: #3b82f6;
+            color: #fff;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+
+        .error-box {
+            background: #7c1d1d;
+            color: #fca5a5;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 18px;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #64748b;
+            padding: 40px;
+        }
+
+        .session-pill {
+            font-size: 0.7rem;
+            background: #1e293b;
+            border: 1px solid #334155;
+            color: #94a3b8;
+            padding: 3px 10px;
+            border-radius: 99px;
+            word-break: break-all;
+        }
+    </style>
+</head>
+
+<body class="dark-theme">
+    <div class="dashboard">
+        <header class="dashboard-header" style="justify-content:center;">
+            <div class="logo">
+                <span class="icon">📋</span>
+                <h1>Exam Activity Log</h1>
+            </div>
+        </header>
+
+        <main style="max-width:900px; margin:0 auto; padding: 0 16px 40px;">
+
+            <!-- Search form -->
+            <form class="search-form" method="GET" action="{{ url_for('activity_log') }}">
+                <input type="text" name="student_id" placeholder="Student ID" value="{{ student_id }}" required>
+                <input type="text" name="session_id" placeholder="Session ID (optional)" value="{{ session_id }}">
+                <button type="submit">🔍 Search</button>
+            </form>
+
+            {% if error %}
+            <div class="error-box">⚠️ {{ error }}</div>
+            {% endif %}
+
+            {% if summary %}
+            <!-- ── Summary Stats ── -->
+            <div class="stat-grid">
+                <div class="stat-card success">
+                    <div class="num">{{ summary.forward_pct }}%</div>
+                    <div class="label">Time Looking Forward</div>
+                </div>
+                <div class="stat-card {% if summary.violations > 0 %}danger{% else %}success{% endif %}">
+                    <div class="num">{{ summary.violations }}</div>
+                    <div class="label">Violations</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num">{{ summary.duration_secs | round(0) | int }}s</div>
+                    <div class="label">Exam Duration</div>
+                </div>
+                <div class="stat-card">
+                    <div class="num">{{ summary.total_events }}</div>
+                    <div class="label">Logged Events</div>
+                </div>
+            </div>
+
+            <!-- ── Gaze Distribution ── -->
+            {% if summary.gaze_counts %}
+            <div class="panel" style="margin-bottom:24px; padding:20px;">
+                <h4
+                    style="margin:0 0 14px; color:#94a3b8; font-size:0.85rem; text-transform:uppercase; letter-spacing:.05em;">
+                    Gaze Distribution</h4>
+                <div style="display:flex; gap:24px; flex-wrap:wrap;">
+                    {% for direction, count in summary.gaze_counts.items() %}
+                    <div style="text-align:center;">
+                        <div
+                            style="font-size:1.4rem; font-weight:700; color:{% if direction=='forward' %}#4ade80{% else %}#f87171{% endif %}">
+                            {{ count }}
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b;">{{ direction }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+
+            <!-- ── Event Timeline Table ── -->
+            {% if events %}
+            <div class="panel" style="overflow-x:auto; padding:0;">
+                <table class="timeline">
+                    <thead>
+                        <tr>
+                            <th>Elapsed</th>
+                            <th>Event Type</th>
+                            <th>Value</th>
+                            <th>Status</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in events %}
+                        {# e = (id, student_id, session_id, timestamp, elapsed, event_type, value, is_violation,
+                        details) #}
+                        {% set is_viol = e[7] == 1 %}
+                        {% set etype = e[5] %}
+                        {% set val = e[6] %}
+                        <tr>
+                            <td style="color:#64748b; white-space:nowrap;">{{ "%.1f" | format(e[4]) }}s</td>
+                            <td>
+                                {% if etype == 'gaze' %}👁️
+                                {% elif etype == 'head_pose' %}🧠
+                                {% elif etype == 'face_status' %}👤
+                                {% elif etype == 'object_detected' %}📦
+                                {% elif etype == 'violation' %}⚠️
+                                {% elif etype == 'session_start' %}▶️
+                                {% elif etype == 'session_end' %}⏹️
+                                {% else %}📌{% endif %}
+                                {{ etype }}
+                            </td>
+                            <td>
+                                {% if val == 'forward' %}
+                                <span class="badge badge-forward">forward</span>
+                                {% elif val in ['left','right','up','down'] %}
+                                <span class="badge badge-away">{{ val }}</span>
+                                {% elif val == 'face_missing' %}
+                                <span class="badge badge-missing">face missing</span>
+                                {% elif etype == 'object_detected' %}
+                                <span class="badge badge-object">{{ val }}</span>
+                                {% else %}
+                                <span style="color:#94a3b8;">{{ val }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if is_viol %}
+                                <span class="badge badge-warn">⚠ Violation</span>
+                                {% else %}
+                                <span class="badge badge-ok">OK</span>
+                                {% endif %}
+                            </td>
+                            <td style="color:#64748b; font-size:0.79rem;">{{ e[8] or '—' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% elif student_id %}
+            <div class="no-data">No activity events found for <strong>{{ student_id }}</strong>{% if session_id %} / {{
+                session_id }}{% endif %}.<br>Run an exam session first.</div>
+            {% endif %}
+
+            <div style="text-align:center; margin-top:28px;">
+                <a class="back-link" href="{{ url_for('index') }}">← Back to Home</a>
+            </div>
+        </main>
+    </div>
+</body>
+
+</html>

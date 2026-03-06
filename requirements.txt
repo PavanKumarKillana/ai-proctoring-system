@@ -1,0 +1,9 @@
+flask
+opencv-python-headless
+mediapipe
+ultralytics
+pillow
+gunicorn
+numpy
+flask-limiter
+flask-talisman

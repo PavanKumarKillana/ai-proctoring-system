@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registered Students – AI Proctoring</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .students-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .student-card {
+            background: var(--panel-bg, #1e293b);
+            border: 1px solid #334155;
+            border-radius: 14px;
+            overflow: hidden;
+            transition: transform .2s;
+        }
+
+        .student-card:hover {
+            transform: translateY(-4px);
+            border-color: #3b82f6;
+        }
+
+        .student-card img {
+            width: 100%;
+            aspect-ratio: 1/1;
+            object-fit: cover;
+            display: block;
+            background: #0f172a;
+        }
+
+        .student-card .no-photo {
+            width: 100%;
+            aspect-ratio: 1/1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            background: #0f172a;
+        }
+
+        .student-card .info {
+            padding: 12px 14px;
+        }
+
+        .student-card .sid {
+            font-weight: 700;
+            color: #e2e8f0;
+            font-size: 0.95rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .student-card .reg-time {
+            font-size: 0.72rem;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        .student-card .actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .student-card .btn-sm {
+            flex: 1;
+            text-align: center;
+            padding: 6px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-verify {
+            background: #1d4ed8;
+            color: #fff;
+        }
+
+        .btn-log {
+            background: #1e3a5f;
+            color: #7dd3fc;
+        }
+
+        .summary-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .total-badge {
+            background: #1e3a5f;
+            color: #38bdf8;
+            padding: 6px 16px;
+            border-radius: 99px;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .filter-input {
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: inherit;
+            flex: 1;
+            min-width: 160px;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #64748b;
+            padding: 60px;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+
+<body class="dark-theme">
+    <div class="dashboard">
+        <header class="dashboard-header" style="justify-content:center;">
+            <div class="logo">
+                <span class="icon">🎓</span>
+                <h1>Registered Students</h1>
+            </div>
+        </header>
+
+        <main style="max-width:1000px; margin:0 auto; padding:0 16px 40px;">
+
+            <div class="summary-bar">
+                <span class="total-badge">{{ total }} student{% if total != 1 %}s{% endif %} registered</span>
+                <input class="filter-input" type="text" id="filterInput" placeholder="Search student ID..."
+                    oninput="filterCards()">
+            </div>
+
+            {% if students %}
+            <div class="students-grid" id="studentGrid">
+                {% for s in students %}
+                <div class="student-card" data-id="{{ s.id }}">
+                    {% if s.has_photo %}
+                    <img src="{{ url_for('student_photo', student_id=s.id) }}" alt="{{ s.id }}"
+                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <div class="no-photo" style="display:none;">🧑</div>
+                    {% else %}
+                    <div class="no-photo">🧑</div>
+                    {% endif %}
+                    <div class="info">
+                        <div class="sid" title="{{ s.id }}">{{ s.id }}</div>
+                        <div class="reg-time">📅 {{ s.registered_at }}</div>
+                        <div class="actions">
+                            <a class="btn-sm btn-verify" href="{{ url_for('verify') }}?student_id={{ s.id }}">
+                                🔍 Verify
+                            </a>
+                            <a class="btn-sm btn-log" href="{{ url_for('activity_log') }}?student_id={{ s.id }}">
+                                📋 Log
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            {% else %}
+            <div class="no-data">
+                No students registered yet.<br>
+                <a href="{{ url_for('register') }}" style="color:#3b82f6; margin-top:12px; display:inline-block;">→
+                    Register first student</a>
+            </div>
+            {% endif %}
+
+            <div style="text-align:center; margin-top:32px;">
+                <a class="back-link" href="{{ url_for('index') }}">← Back to Home</a>
+            </div>
+        </main>
+    </div>
+    <script>
+        function filterCards() {
+            const q = document.getElementById('filterInput').value.toLowerCase();
+            document.querySelectorAll('#studentGrid .student-card').forEach(card => {
+                card.style.display = card.dataset.id.toLowerCase().includes(q) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+
+</html>

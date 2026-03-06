@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments (do NOT commit)
+cv_project/
+venv/
+env/
+.venv/
+
+# Model weights (large binary files)
+*.pt
+*.pth
+
+# Face encodings & student photos (private data)
+data/*.pkl
+data/*.jpg
+data/*.jpeg
+data/debug_*.jpg
+
+# Databases (contain private exam data)
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Expo / Node (Production_Mobile)
+node_modules/
+.expo/
+*.apk
+*.aab
+
+# Secrets
+.env
+secrets.txt
