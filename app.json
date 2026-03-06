@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Production_Mobile",
-    "slug": "Production_Mobile",
+    "name": "AI Proctor",
+    "slug": "ai-proctor",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,6 +15,10 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.aiproctor.exam",
+      "permissions": [
+        "CAMERA"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -24,6 +28,22 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-asset",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "064d5f0b-e5cb-43dd-9649-34e847b88a70"
+      }
     }
   }
 }

@@ -1,112 +1,155 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ActivityIndicator, Alert, SafeAreaView, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, View, Text, ActivityIndicator, SafeAreaView, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { Camera } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 
-// NOTE: Replace this IP with the computer's actual local IPv4 address
-// (e.g., usually 192.168.x.x or 10.0.x.x)
-const SERVER_URL = 'http://192.168.1.100:7860';
+// Windows Mobile Hotspot IP — fixed forever, works at any location!
+const SERVER_URL = 'http://192.168.137.1:7860';
 
 export default function App() {
-  const [hasPermission, setHasPermission] = useState(null);
+  const [permission, requestPermission] = useCameraPermissions();
+  const cameraRef = useRef(null);
+  const webviewRef = useRef(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      // Request native camera and microphone permissions on the mobile device
-      const cameraStatus = await Camera.requestCameraPermissionsAsync();
-      const microphoneStatus = await Camera.requestMicrophonePermissionsAsync();
+    if (!permission?.granted && permission?.canAskAgain) {
+      requestPermission();
+    }
+  }, [permission]);
 
-      setHasPermission(
-        cameraStatus.status === 'granted' && microphoneStatus.status === 'granted'
-      );
-    })();
-  }, []);
+  // Inject JavaScript to intercept the exam logic
+  // DELETED: Handled strictly by exam.html itself to fix WebView asynchronous initialization order bugs!
+  const injectedScript = `true;`;
 
-  if (hasPermission === null) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={styles.text}>Requesting Camera Permissions...</Text>
-      </View>
-    );
+  const onMessage = async (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+
+      if (data.action === 'log') {
+        console.log("[WebView Log]:", data.message);
+        return;
+      }
+
+      if (data.action === 'take_picture' && cameraRef.current && !isProcessing) {
+        setIsProcessing(true);
+
+        // Take a highly compressed picture using the Native Expo Camera API
+        // Added shutterSound: false to stop the clicking noise and screen flashing!
+        const photo = await cameraRef.current.takePictureAsync({
+          base64: true,
+          quality: 0.1,
+          shutterSound: false
+        });
+
+        const base64Data = 'data:image/jpeg;base64,' + photo.base64;
+
+        // Display frame immediately on the HTML UI (mimicking real-time WebRTC)
+        if (webviewRef.current) {
+          webviewRef.current.injectJavaScript(`
+              var imgEl = document.getElementById('nativeImageStream');
+              if(imgEl) { imgEl.src = '${base64Data}'; }
+              true;
+            `);
+        }
+
+        // POST to backend for AI processing silently over the HTTP LAN
+        const response = await fetch(`${SERVER_URL}/process_frame`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: base64Data,
+            student_id: data.student_id,
+            model_choice: data.model_choice
+          })
+        });
+
+        const resultData = await response.json();
+
+        // Send alert data back into WebView JavaScript so the HTML UI shakes/flashes!
+        if (webviewRef.current) {
+          webviewRef.current.injectJavaScript(`
+              var imgEl = document.getElementById('nativeImageStream');
+              if(imgEl) { imgEl.src = '${base64Data}'; }
+
+              if(window.processBackendAlerts) {
+                 window.processBackendAlerts(${JSON.stringify(resultData)});
+              }
+              if(typeof window.isCapturing !== 'undefined') {
+                 window.isCapturing = false; // unlock for next frame
+              }
+              true;
+            `);
+        }
+        setIsProcessing(false);
+      } else if (data.action === 'take_single_picture' && cameraRef.current && !isProcessing) {
+        setIsProcessing(true);
+        // Take a picture for verify/register endpoints silently
+        const photo = await cameraRef.current.takePictureAsync({
+          base64: true,
+          quality: 0.5,
+          shutterSound: false
+        });
+
+        const base64Data = 'data:image/jpeg;base64,' + photo.base64;
+
+        if (webviewRef.current) {
+          webviewRef.current.injectJavaScript(`
+              if(window.receivePicture) {
+                 window.receivePicture('${base64Data}');
+              }
+              true;
+            `);
+        }
+        setIsProcessing(false);
+      }
+    } catch (err) {
+      console.log("Error handling native message:", err);
+      setIsProcessing(false);
+    }
+  };
+
+  if (!permission) {
+    return <View style={styles.center}><ActivityIndicator size="large" color="#4F46E5" /></View>;
   }
 
-  if (hasPermission === false) {
+  if (!permission.granted) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>No access to camera or microphone.</Text>
-        <Text style={styles.subText}>The AI Proctoring app requires these permissions to function.</Text>
+        <Text style={styles.errorText}>Camera Access Required</Text>
+        <Text style={styles.subText} onPress={requestPermission}>Tap to grant permission</Text>
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Hidden Native Camera acts as our isolated capturing engine */}
+      <View style={{ width: 1, height: 1, overflow: 'hidden' }}>
+        <CameraView style={{ width: 10, height: 10 }} facing="front" ref={cameraRef} animateShutter={false} />
+      </View>
+
+      {/* The main interface continues to run the Flask web app flawlessly */}
       <WebView
+        ref={webviewRef}
         source={{ uri: SERVER_URL }}
         style={styles.webview}
+        injectedJavaScript={injectedScript}
+        injectedJavaScriptBeforeContentLoaded={`window.isExpoApp = true; true;`}
+        onMessage={onMessage}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         allowsInlineMediaPlayback={true}
-        // Essential configuration for WebRTC in WebView
         mediaPlaybackRequiresUserAction={false}
-        // Handle permissions requested by the web app (WebRTC)
-        onPermissionRequest={(event) => {
-          Alert.alert(
-            "Camera Request",
-            "The Proctoring Service needs to access your camera",
-            [
-              { text: "Deny", onPress: () => event.deny(), style: "cancel" },
-              { text: "Grant", onPress: () => event.grant() }
-            ]
-          );
-        }}
-        onError={(syntheticEvent) => {
-          const { nativeEvent } = syntheticEvent;
-          console.error("WebView error: ", nativeEvent);
-        }}
-        renderError={(errorName) => (
-          <View style={styles.center}>
-            <Text style={styles.errorText}>Could not connect to the Backend.</Text>
-            <Text style={styles.subText}>Make sure your PC's Flask Server is running on 0.0.0.0:7860</Text>
-            <Text style={styles.subText}>Check that "{SERVER_URL}" is your PC's correct IP Address.</Text>
-          </View>
-        )}
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  webview: {
-    flex: 1,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f8fafc',
-  },
-  text: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#334155',
-  },
-  errorText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#ef4444',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  subText: {
-    fontSize: 14,
-    color: '#64748b',
-    textAlign: 'center',
-  }
+  container: { flex: 1, backgroundColor: '#000' },
+  webview: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  errorText: { fontSize: 18, color: '#ef4444', marginBottom: 10 },
+  subText: { fontSize: 16, color: '#4F46E5', textDecorationLine: 'underline', padding: 10 }
 });
