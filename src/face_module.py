@@ -10,7 +10,12 @@ import sqlite3
 import uuid
 from contextlib import contextmanager
 
-from src.custom_gaze_tracker import CustomPyTorchGazeTracker
+try:
+    from src.custom_gaze_tracker import CustomPyTorchGazeTracker
+    CUSTOM_TRACKER_AVAILABLE = True
+except Exception:
+    CustomPyTorchGazeTracker = None
+    CUSTOM_TRACKER_AVAILABLE = False
 
 # Global state for sharing with UI (gaze and alerts)
 current_state = {'gaze': 'unknown', 'head_pose': 'forward', 'alerts': []}

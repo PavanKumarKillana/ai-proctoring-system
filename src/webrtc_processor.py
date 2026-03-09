@@ -5,7 +5,12 @@ import uuid
 import numpy as np
 from src.face_module import (get_gaze_direction, get_head_pose, current_state,
                               log_violation, log_activity, init_db)
-from src.custom_gaze_tracker import CustomPyTorchGazeTracker
+try:
+    from src.custom_gaze_tracker import CustomPyTorchGazeTracker
+    CUSTOM_TRACKER_AVAILABLE = True
+except Exception:
+    CustomPyTorchGazeTracker = None
+    CUSTOM_TRACKER_AVAILABLE = False
 import mediapipe as mp
 from ultralytics import YOLO
 
@@ -45,8 +50,13 @@ class ExamSession:
         self.yolo_model    = YOLO('yolov8n.pt')
         self.custom_tracker = None
 
+        # If custom model requested but PyTorch not installed, silently fall back to mediapipe
         if self.model_choice == 'custom_mobilenet':
-            self.custom_tracker = CustomPyTorchGazeTracker()
+            if CUSTOM_TRACKER_AVAILABLE and CustomPyTorchGazeTracker is not None:
+                self.custom_tracker = CustomPyTorchGazeTracker()
+            else:
+                print("[Warning] Custom MobileNet tracker not available — falling back to MediaPipe.")
+                self.model_choice = 'mediapipe'
 
         # In-stream background calibration
         self.is_calibrated        = False if model_choice == 'mediapipe' else True
